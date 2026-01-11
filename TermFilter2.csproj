@@ -1,0 +1,13 @@
+﻿<Project Sdk="Dalamud.NET.Sdk/14.0.1">
+  <PropertyGroup>
+    <Version>1.0.0.1</Version>
+	<TargetFramework>net10.0</TargetFramework>
+	<OutputPath>..\Build\TermFilter2\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="TermFilter2.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="DalamudPackager" Version="14.0.1" />
+  </ItemGroup>
+</Project>
