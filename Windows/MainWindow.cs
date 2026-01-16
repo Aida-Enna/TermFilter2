@@ -106,7 +106,7 @@ namespace TermFilter2.Windows
                     ImGui.TextUnformatted((index + 1).ToString());
                     ImGui.TableNextColumn();
                     List<string> FixedChannelNames = new List<string>();
-                    List<XivChatType> EnabledChannelsShortened = name.EnabledChannels;
+                    List<XivChatType> EnabledChannelsShortened = new(name.EnabledChannels);
                     if (new HashSet<XivChatType>(name.EnabledChannels).SetEquals(PlayerChatChannels))
                     {
                         FixedChannelNames.Add("All Player Chat Channels");
@@ -163,15 +163,12 @@ namespace TermFilter2.Windows
                 ImGui.SameLine();
                 if (ImGui.Button("Add"))
                 {
-                    if (EnableChannelToAdd != XivChatType.None && !EnabledChannelsToAdd.Contains(EnableChannelToAdd)) { EnabledChannelsToAdd.Add(EnableChannelToAdd); }
+                    if (EnableChannelToAdd != XivChatType.None && !EnabledChannelsToAdd.Contains(EnableChannelToAdd)){ EnabledChannelsToAdd.Add(EnableChannelToAdd); }
                 }
                 ImGui.SameLine();
                 if (ImGui.Button("Remove"))
                 {
-                    if (EnableChannelToAdd != XivChatType.None && EnabledChannelsToAdd.Contains(EnableChannelToAdd)) 
-                    {
-                        EnabledChannelsToAdd.Remove(EnableChannelToAdd); 
-                    }
+                    if (EnableChannelToAdd != XivChatType.None && EnabledChannelsToAdd.Contains(EnableChannelToAdd)) { EnabledChannelsToAdd.Remove(EnableChannelToAdd); }
                 }
                 ImGui.SameLine();
                 if (ImGui.Button("Add all player chat channels"))
