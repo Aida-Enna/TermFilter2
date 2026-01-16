@@ -9,7 +9,7 @@ namespace TermFilter2
         public int Version { get; set; }
 
 
-        public Dictionary<ulong, TermFilterCollection> Terms { get; set; } = new Dictionary<ulong, TermFilterCollection>();
+        public Dictionary<ulong, TermFilter2Collection> Terms { get; set; } = new Dictionary<ulong, TermFilter2Collection>();
 
         private IDalamudPluginInterface pluginInterface;
 

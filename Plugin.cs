@@ -1,17 +1,14 @@
-﻿using Dalamud.Game.Gui.ContextMenu;
-using Dalamud.Game.Text;
+﻿using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.UI;
-using TermFilter2.Windows;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
+using TermFilter2.Windows;
 using Veda;
 using TextPayload = Dalamud.Game.Text.SeStringHandling.Payloads.TextPayload;
 
@@ -35,6 +32,7 @@ namespace TermFilter2
 
         public readonly WindowSystem WindowSystem = new("TermFilter2");
         private ConfigWindow ConfigWindow { get; init; }
+
         //public static ChangeNicknameWindow ChangeNicknameWindow { get; set; }
         private MainWindow MainWindow { get; init; }
 
@@ -46,7 +44,16 @@ namespace TermFilter2
 
             if (!PluginConfig.Terms.ContainsKey(PlayerState.ContentId))
             {
-                PluginConfig.Terms.Add(PlayerState.ContentId, new TermFilterCollection());
+                PluginConfig.Terms.Add(PlayerState.ContentId, new TermFilter2Collection());
+                PluginConfig.Terms[PlayerState.ContentId].Add(new TermFilter2Entry
+                {
+                    EnabledChannels = new List<XivChatType>
+                    {
+                        XivChatType.Ls2
+                    },
+                    HideMessage = false,
+                    TermToFilter = "Howling"
+                });
                 PluginConfig.Save();
             }
 
@@ -66,7 +73,16 @@ namespace TermFilter2
             this.commandManager = new PluginCommandManager<Plugin>(this, commands);
 
             Chat.ChatMessage += ChatMessage;
-            ContextMenu.OnMenuOpened += OnContextMenuOpened;
+            ClientState.Login += Login;
+        }
+
+        private void Login()
+        {
+            if (!PluginConfig.Terms.ContainsKey(PlayerState.ContentId))
+            {
+                PluginConfig.Terms.Add(PlayerState.ContentId, new TermFilter2Collection());
+                PluginConfig.Save();
+            }
         }
 
         private void ChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
@@ -75,155 +91,66 @@ namespace TermFilter2
             {
                 if (!ClientState.IsLoggedIn) { return; }
 
-                if (sender.Payloads.Count == 0) { return; }
+                if (message.Payloads.Count == 0) { return; }
 
-                //bool PayloadsModified = false;
-                //var builder = new SeStringBuilder();
-                //var NewPayloads = new List<Payload>();
-
-                //string PlayerName = "Player";
-                //string PlayerWorld = "World";
-                //bool ClearedPlayerPayloadAlready = false;
-                //List<Payload> NicknamePayload = new List<Payload>();
-                //foreach (Payload payload in sender.Payloads)
-                //{
-                //    if (payload is PlayerPayload)
-                //    {
-                //        PlayerName = (payload as PlayerPayload).PlayerName;
-                //        PlayerWorld = (payload as PlayerPayload).World.Value.Name.ExtractText();
-
-                //        NicknameEntry? CurrentNicknameEntry = PluginConfig.Nicknames[PlayerState.ContentId].Find(x => x.PlayerName == PlayerName && x.PlayerWorld == PlayerWorld);
-
-                //        if (CurrentNicknameEntry == null) { return; }
-                //        if (CurrentNicknameEntry.Enabled == false) { return; }
-                //        if (String.IsNullOrWhiteSpace(CurrentNicknameEntry.Nickname)) { return; }
-
-                //        PayloadsModified = true;
-                //        //if (PlayerState.CharacterName == PlayerName) { return; }
-
-                //        //If we've set a global custom color but NOT an override
-                //        if (PluginConfig.Global_UseCustomColor && CurrentNicknameEntry.OverrideGlobalStyle == false)
-                //        {
-                //            //Apply the color
-                //            NicknamePayload.Add(new UIForegroundPayload(Plugin.PluginConfig.Global_SelectedColor));
-                //        }
-                //        //If we've set an override
-                //        if (CurrentNicknameEntry.OverrideGlobalStyle && CurrentNicknameEntry.OverrideGlobalColor)
-                //        {
-                //            //Apply the color
-                //            NicknamePayload.Add(new UIForegroundPayload(CurrentNicknameEntry.OverrideGlobalColorActualColor));
-                //        }
-                //        //If we have global or override italics on
-                //        if (PluginConfig.Global_UseItalics || (CurrentNicknameEntry.OverrideGlobalStyle && CurrentNicknameEntry.OverrideGlobalItalics))
-                //        {
-                //            //Apply italics
-                //            NicknamePayload.Add(new EmphasisItalicPayload(true));
-                //        }
-                //        //Put the name in
-                //        if (PluginConfig.PutNicknameInFront)
-                //        {
-                //            NicknamePayload.Add(new TextPayload("(" + CurrentNicknameEntry.Nickname + ") "));
-                //        }
-                //        else
-                //        {
-                //            NicknamePayload.Add(new TextPayload(" (" + CurrentNicknameEntry.Nickname + ")"));
-                //        }
-                //        //If we have global or override italics on, end them here
-                //        if (PluginConfig.Global_UseItalics || (CurrentNicknameEntry.OverrideGlobalStyle && CurrentNicknameEntry.OverrideGlobalItalics))
-                //        {
-                //            NicknamePayload.Add(new EmphasisItalicPayload(false));
-                //        }
-                //        //end the color
-                //        if (PluginConfig.Global_UseCustomColor || (CurrentNicknameEntry.OverrideGlobalStyle && CurrentNicknameEntry.OverrideGlobalColor))
-                //        {
-                //            NicknamePayload.Add(new UIForegroundPayload(0));
-                //        }
-                //        NewPayloads.Add(payload);
-                //    }
-                //    else if (payload is TextPayload) // If it's a text payload
-                //    {
-                //        string PayloadPlayerName = string.Concat((payload as TextPayload).Text.Where(c => Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c)));
-                //        if (PayloadPlayerName == PlayerName) // If it's the person's name
-                //        {
-                //            PayloadsModified = true;
-                //            if (PluginConfig.PutNicknameInFront) // If we're supposed to save it in front
-                //            {
-                //                NewPayloads.AddRange(NicknamePayload);
-                //                NewPayloads.Add(payload);
-                //            }
-                //            else
-                //            {
-                //                NewPayloads.Add(payload);
-                //                NewPayloads.AddRange(NicknamePayload);
-                //            }
-                //        }
-                //        else
-                //        { 
-                //            NewPayloads.Add(payload); 
-                //        }
-                //    }
-                //    else
-                //    {
-                //        NewPayloads.Add(payload);
-                //    }
-                //    //if (PluginConfig.PutNicknameInFront)
-                //    //{
-                //    //    if (payload is TextPayload)
-                //    //    {
-                //    //        //Add our thing THEN the name payload
-                //    //        if (Plugin.PluginConfig.MatchColoredName)
-                //    //        {
-                //    //            NewPayloads.AddRange(NicknamePayload);
-                //    //        }
-                //    //        else
-                //    //        {
-                //    //            UIForegroundPayload FirstUIPayload = (UIForegroundPayload)sender.Payloads.Where(x => x is UIForegroundPayload).First();
-                //    //            NewPayloads.Remove(FirstUIPayload);
-                //    //            NewPayloads.AddRange(NicknamePayload);
-                //    //            NewPayloads.Add(FirstUIPayload);
-                //    //        }
-                //    //        //NewPayloads.Add(payload);
-                //    //    }
-                //    //}
-
-                //    //if (payload is RawPayload)
-                //    //{
-                //    //    if (!PluginConfig.PutNicknameInFront)
-                //    //    {
-                //    //        //Add the player payload THEN our thing
-                //    //        //NewPayloads.Add(payload);)
-                //    //        NewPayloads.AddRange(NicknamePayload);
-                //    //    }
-                //    //    Thread.Sleep(1);
-                //    //}
-                //    //if (payload is UIForegroundPayload && PluginConfig.MatchColoredName && !ClearedPlayerPayloadAlready)
-                //    //{
-                //    //    if ((payload as UIForegroundPayload).ColorKey == 0)
-                //    //    {
-                //    //        ClearedPlayerPayloadAlready = true;
-                //    //        continue;
-                //    //    }
-                //    //}
-                //    //NewPayloads.Add(payload);
-                //}
-
-                //if (PayloadsModified/*NewPayloads.Count > 2*/)
-                //{
-                //    sender.Payloads.Clear();
-                //    sender.Payloads.AddRange(NewPayloads);
-                //    //if (PluginConfig.MatchColoredName) { sender.Payloads.Insert(sender.Payloads.Count() - 1, new UIForegroundPayload(0)); }
-                //    Thread.Sleep(1);
-                //}
-#if DEBUG
-                int count = 0;
-                Plugin.PluginLog.Debug("==PAYLOAD START==");
-                foreach (Payload PLoad in sender.Payloads)
+                //if (type == XivChatType.Ls2)
+                if (PluginConfig.Terms[PlayerState.ContentId].Any(a => a.EnabledChannels.Any(b => type == b)))
                 {
-                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
-                    count++;
+                    string Message = message.TextValue;
+                    string PlayerName = string.Concat(sender.TextValue.ToString().Where(c => Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c)));
+                    //string PlayerName = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).PlayerName;
+                    //string PlayerWorld = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).World.Value.Name.ExtractText();
+
+                    if (PluginConfig.Terms[PlayerState.ContentId].Any(x => Message.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        //Get the TermFilter
+                        TermFilter2Entry? TermEntry = PluginConfig.Terms[PlayerState.ContentId].Find(x => Message.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase));
+                        int TermFilterNumber = PluginConfig.Terms[PlayerState.ContentId].FindIndex(x => Message.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)) + 1;
+
+                        if (TermEntry == null) { return; }
+                        if (TermEntry.HideMessage)
+                        {
+                            isHandled = true;
+                            return;
+                        }
+                        else
+                        {
+                            var builder = new SeStringBuilder();
+                            var NewPayloads = new List<Payload>();
+
+                            //bool ClearedPlayerPayloadAlready = false;
+                            //List<Payload> ReplacementPayload = new List<Payload>();
+                            foreach (TextPayload payload in message.Payloads)
+                            {
+                                if (payload is TextPayload) // If it's a text payload, should be the message
+                                {
+                                    NewPayloads.Add(new UIForegroundPayload(17));
+                                    NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
+                                    PluginLog.Debug("Filtered message from \"" + PlayerName + "\": \"" + payload.Text.Replace(TermEntry.TermToFilter.ToLower(), "->" + TermEntry.TermToFilter.ToUpper() + "<-") + "\"");
+                                }
+                                else
+                                {
+                                    NewPayloads.Add(payload);
+                                }
+                            }
+
+                            message.Payloads.Clear();
+                            message.Payloads.AddRange(NewPayloads);
+                            //Thread.Sleep(1);
+                        }
+                    }
                 }
-                Plugin.PluginLog.Debug("==PAYLOAD END==");
-#endif
+
+//#if DEBUG
+//                int count = 0;
+//                Plugin.PluginLog.Debug("==PAYLOAD START==");
+//                foreach (Payload PLoad in message.Payloads)
+//                {
+//                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
+//                    count++;
+//                }
+//                Plugin.PluginLog.Debug("==PAYLOAD END==");
+//#endif
             }
             catch (Exception f)
             {
@@ -250,15 +177,15 @@ namespace TermFilter2
         //}
 
         [Command("/termfilter2")]
-        [Aliases("/TermFilter2", "/nn")]
+        [Aliases("/tf2", "/filters")]
         [HelpMessage("Shows the main window")]
         public void ToggleMain(string command, string args)
         {
             MainWindow.Toggle();
         }
 
-        [Command("/nicknameconfig")]
-        [Aliases("/nnconfig", "/nnc")]
+        [Command("/termfilter2config")]
+        [Aliases("/tf2config", "/tf2c")]
         [HelpMessage("Shows the config menu")]
         public void ToggleConfig(string command, string args)
         {
@@ -283,10 +210,9 @@ namespace TermFilter2
 
             ConfigWindow.Dispose();
             MainWindow.Dispose();
-            ChangeNicknameWindow.Dispose();
+            //ChangeNicknameWindow.Dispose();
 
             Chat.ChatMessage -= ChatMessage;
-            ContextMenu.OnMenuOpened -= OnContextMenuOpened;
         }
 
         public void Dispose()
