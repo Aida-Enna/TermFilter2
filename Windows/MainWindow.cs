@@ -3,9 +3,9 @@ using Dalamud.Game.Text;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using Serilog.Core;
+using Lumina.Excel;
+using Lumina.Excel.Sheets;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -15,7 +15,7 @@ namespace TermFilter2.Windows
 {
     public class MainWindow : Window, IDisposable
     {
-        //private static ExcelSheet<World>? worldSheet = Plugin.DataManager.GetExcelSheet<World>();
+        private static ExcelSheet<World>? worldSheet = Plugin.DataManager.GetExcelSheet<World>();
 
         // We give this window a constant ID using ###.
         // This allows for labels to be dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -35,18 +35,23 @@ namespace TermFilter2.Windows
 
         private bool ShowSupport;
         public string TermToAdd = "";
+        public bool SpecifyChannelEnabled = false;
         public XivChatType EnableChannelToAdd;
         public List<XivChatType> EnabledChannelsToAdd = new List<XivChatType>();
         public List<string> EnabledPlayersToAdd = new List<string>();
+        public string PlayerToAddName = "";
+        public string PlayerToAddWorld = "";
         public bool HideMessageToAdd = false;
         public bool ReplaceWordInMessageToAdd = false;
         public string ReplaceWordToAdd = "";
         public List<string> ReplaceTermsToAdd = new List<string>();
+        public bool SpecifyPlayersEnabled = false;
 
         public static readonly IReadOnlyList<XivChatType> PlayerChatChannels = Enum.GetValues<XivChatType>().Where(v => v != XivChatType.Echo &&
         typeof(XivChatType).GetField(v.ToString())?.IsDefined(typeof(XivChatTypeInfoAttribute), false) == true).OrderBy(v => v.ToString()).ToList();
 
-        private string CurrentError = "";
+        private string AddTermError = "";
+        private string AddPlayerError = "";
 
         //public List<XivChatType> PlayerChatChannels = new List<XivChatType>
         //{
@@ -88,10 +93,10 @@ namespace TermFilter2.Windows
             {
                 ImGui.TableSetupColumn("Term");
                 ImGui.TableSetupColumn("Term ID");
-                ImGui.TableSetupColumn("Enabled Channels");
-                ImGui.TableSetupColumn("Enabled Players (WIP)");
-                ImGui.TableSetupColumn("Hide Message");
-                ImGui.TableSetupColumn("Replace Message");
+                ImGui.TableSetupColumn("Channels");
+                ImGui.TableSetupColumn("Players");
+                ImGui.TableSetupColumn("Hide");
+                ImGui.TableSetupColumn("Replace");
                 ImGui.TableSetupColumn("Replace Terms");
                 ImGui.TableSetupColumn("Modify Term");
                 ImGui.TableHeadersRow();
@@ -121,7 +126,8 @@ namespace TermFilter2.Windows
                     string EnabledChannels = string.Join(Environment.NewLine, FixedChannelNames);
                     ImGui.TextUnformatted(EnabledChannels);
                     ImGui.TableNextColumn();
-                    ImGui.TextUnformatted("(Feature not yet available)");
+                    string FilteredPlayers = string.Join(Environment.NewLine, name.EnabledPlayers);
+                    ImGui.TextUnformatted(FilteredPlayers);
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(name.HideMessage.ToString());
                     ImGui.TableNextColumn();
@@ -134,8 +140,24 @@ namespace TermFilter2.Windows
                     {
                         TermToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].TermToFilter;
                         EnableChannelToAdd = XivChatType.None;
-                        EnabledChannelsToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledChannels;
-                        EnabledPlayersToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledPlayers;
+                        if (!new HashSet<XivChatType>(name.EnabledChannels).SetEquals(PlayerChatChannels))
+                        {
+                            SpecifyChannelEnabled = true;
+                        }
+                        else
+                        {
+                            SpecifyChannelEnabled = false;
+                        }
+                        EnabledChannelsToAdd.AddRange(Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledChannels);
+                        if (Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledPlayers.FirstOrDefault() != "All")
+                        {
+                            SpecifyPlayersEnabled = true;
+                        }
+                        else
+                        {
+                            SpecifyPlayersEnabled = false;
+                        }
+                        EnabledPlayersToAdd.AddRange(Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledPlayers);
                         HideMessageToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].HideMessage;
                         ReplaceWordInMessageToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].ReplaceWordInMessage;
                         ReplaceTermsToAdd.Clear();
@@ -147,51 +169,120 @@ namespace TermFilter2.Windows
                     }
                 }
                 ImGui.EndTable();
-
                 ImGui.Text("Term: ");
                 ImGui.SameLine();
                 ImGui.InputText("##Term", ref TermToAdd);
                 ImGui.Separator();
-                ImGui.Text("Channels: ");
-                ImGui.SameLine();
-                //ImGui.SetNextItemWidth(180);
-                ChatTypeDropDown(" ",
-                () => FixLSName(EnableChannelToAdd.ToString()),
-                s => EnableChannelToAdd = Enum.Parse<XivChatType>(s),
-                s => s == FixLSName(EnableChannelToAdd.ToString()),
-                PlayerChatChannels.Select(c => c.ToString()).OrderBy(a => a).ToList());
-                ImGui.SameLine();
-                if (ImGui.Button("Add"))
+                ImGui.Checkbox("Only filter specific channels", ref SpecifyChannelEnabled);
+                if (SpecifyChannelEnabled)
                 {
-                    if (EnableChannelToAdd != XivChatType.None && !EnabledChannelsToAdd.Contains(EnableChannelToAdd)){ EnabledChannelsToAdd.Add(EnableChannelToAdd); }
-                }
-                ImGui.SameLine();
-                if (ImGui.Button("Remove"))
-                {
-                    if (EnableChannelToAdd != XivChatType.None && EnabledChannelsToAdd.Contains(EnableChannelToAdd)) { EnabledChannelsToAdd.Remove(EnableChannelToAdd); }
-                }
-                ImGui.SameLine();
-                if (ImGui.Button("Add all player chat channels"))
-                {
-                    EnabledChannelsToAdd.Clear();
-                    EnabledChannelsToAdd.AddRange(PlayerChatChannels);
-                }
-                ImGui.SameLine();
-                if (ImGui.Button("Clear"))
-                {
-                    EnabledChannelsToAdd.Clear();
-                }
-                if (EnabledChannelsToAdd.Count > 0)
-                {
-                    ImGui.Text("Channels to add to the new term filter:");
-                    List<string> FixedChannelNames = new List<string>();
-                    foreach (var thing in EnabledChannelsToAdd)
+                    ImGui.Text("Channels: ");
+                    ImGui.SameLine();
+                    //ImGui.SetNextItemWidth(180);
+                    ChatTypeDropDown(" ",
+                    () => FixLSName(EnableChannelToAdd.ToString()),
+                    s => EnableChannelToAdd = Enum.Parse<XivChatType>(s),
+                    s => s == FixLSName(EnableChannelToAdd.ToString()),
+                    PlayerChatChannels.Select(c => c.ToString()).OrderBy(a => a).ToList());
+                    ImGui.SameLine();
+                    if (ImGui.Button("Add"))
                     {
-                        FixedChannelNames.Add(FixLSName(thing.GetInfoName()));
+                        if (EnableChannelToAdd != XivChatType.None && !EnabledChannelsToAdd.Contains(EnableChannelToAdd)) { EnabledChannelsToAdd.Add(EnableChannelToAdd); }
                     }
-                    ImGui.TextWrapped(string.Join(", ", FixedChannelNames.OrderBy(x => x)));
+                    ImGui.SameLine();
+                    if (ImGui.Button("Remove"))
+                    {
+                        if (EnableChannelToAdd != XivChatType.None && EnabledChannelsToAdd.Contains(EnableChannelToAdd)) { EnabledChannelsToAdd.Remove(EnableChannelToAdd); }
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Add all player chat channels"))
+                    {
+                        EnabledChannelsToAdd.Clear();
+                        EnabledChannelsToAdd.AddRange(PlayerChatChannels);
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Clear"))
+                    {
+                        EnabledChannelsToAdd.Clear();
+                    }
+                    if (EnabledChannelsToAdd.Count > 0)
+                    {
+                        ImGui.Text("Channels to add to the new term filter:");
+                        if (new HashSet<XivChatType>(EnabledChannelsToAdd).SetEquals(PlayerChatChannels))
+                        {
+                            ImGui.TextWrapped("All Player Chat Channels");
+                        }
+                        else
+                        {
+                            List<string> FixedChannelNames = new List<string>();
+                            foreach (var thing in EnabledChannelsToAdd)
+                            {
+                                FixedChannelNames.Add(FixLSName(thing.GetInfoName()));
+                            }
+                            ImGui.TextWrapped(string.Join(", ", FixedChannelNames.OrderBy(x => x)));
+                        }
+                    }
+                    ImGui.Separator();
                 }
-                ImGui.Separator();
+                ImGui.Checkbox("Only filter specific players", ref SpecifyPlayersEnabled);
+                if (SpecifyPlayersEnabled)
+                {
+                    ImGui.Text("Name: ");
+                    ImGui.SameLine();
+                    ImGui.Indent(300);
+                    ImGui.Text("World: ");
+                    ImGui.Unindent(300);
+                    ImGui.InputText("##Name", ref PlayerToAddName);
+                    ImGui.SameLine();
+                    ImGui.SetNextItemWidth(180);
+                    if (ImGui.BeginCombo("###World", string.IsNullOrWhiteSpace(PlayerToAddWorld) ? "Not Selected" : PlayerToAddWorld))
+                    {
+                        foreach (World w in worldSheet.Where(w => w.IsPublic).OrderBy(x => x.Name.ToString()))
+                        {
+                            if (ImGui.Selectable(w.Name.ToString()))
+                            {
+                                PlayerToAddWorld = w.Name.ToString();
+                            }
+                        }
+                        ImGui.EndCombo();
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Add player"))
+                    {
+                        if (string.IsNullOrWhiteSpace(PlayerToAddName) || PlayerToAddName.Count(c => c == ' ') != 1)
+                        {
+                            AddPlayerError = "Invalid name, please check it again.";
+                            return;
+                        }
+                        else if (string.IsNullOrWhiteSpace(PlayerToAddWorld) || PlayerToAddWorld == "Not Selected")
+                        {
+                            AddPlayerError = "Invalid world, please check it again.";
+                            return;
+                        }
+                        else
+                        {
+                            if (!EnabledPlayersToAdd.Contains(PlayerToAddName + "@" + PlayerToAddWorld)) { EnabledPlayersToAdd.Add(PlayerToAddName + "@" + PlayerToAddWorld); }
+                            AddPlayerError = "";
+                        }
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Remove player"))
+                    {
+                        if (EnabledPlayersToAdd.Contains(PlayerToAddName + "@" + PlayerToAddWorld)) { EnabledPlayersToAdd.Remove(PlayerToAddName + "@" + PlayerToAddWorld); }
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Clear"))
+                    {
+                        EnabledPlayersToAdd.Clear();
+                    }
+                    if (EnabledPlayersToAdd.Count > 0)
+                    {
+                        ImGui.Text("Channels to add to the new term filter:");
+                        ImGui.TextWrapped(string.Join(", ", EnabledPlayersToAdd.OrderBy(x => x)));
+                    }
+                    if (!string.IsNullOrWhiteSpace(AddPlayerError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), AddPlayerError); }
+                    ImGui.Separator();
+                }
                 ImGui.Text("Default behavior is to show \"Message could not be displayed due to Term Filter #(Term ID)\".\nIf you would like to override that behavior, you may do so here:");
                 if (ImGui.Checkbox("Hide message", ref HideMessageToAdd))
                 {
@@ -210,19 +301,24 @@ namespace TermFilter2.Windows
                 }
 
                 ImGui.Separator();
-                if (ImGui.Button("Add term"))
+                if (ImGui.Button("Add term (or modify term if it exists)"))
                 {
                     if (string.IsNullOrWhiteSpace(TermToAdd))
                     {
-                        CurrentError = "You must enter a term to filter.";
+                        AddTermError = "You must enter a term to filter.";
                         return;
                     }
-                    if (EnabledChannelsToAdd.Count == 0)
+                    if (SpecifyChannelEnabled && EnabledChannelsToAdd.Count == 0)
                     {
-                        CurrentError = "You must add at least 1 channel to filter.";
+                        AddTermError = "You must add at least 1 channel to filter if you have channel filters enabled.";
                         return;
                     }
-                    CurrentError = "";
+                    if (SpecifyPlayersEnabled && EnabledPlayersToAdd.Count == 0)
+                    {
+                        AddTermError = "You must add at least 1 player to filter if you have player filters enabled.";
+                        return;
+                    }
+                    AddTermError = "";
                     //if (string.IsNullOrWhiteSpace(PlayerToAddWorld) || PlayerToAddWorld == "Not Selected")
                     //{
                     //    Plugin.Chat.Print("Invalid world, please check it again.");
@@ -230,6 +326,18 @@ namespace TermFilter2.Windows
                     //}
 
                     TermFilter2Entry? CurrentTermFilter2Entry = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Find(x => x.TermToFilter.ToLower() == TermToAdd.ToLower());
+
+                    //If they don't want to filter by chat channel, add it to all of them
+                    if (!SpecifyChannelEnabled)
+                    {
+                        EnabledChannelsToAdd.Clear();
+                        EnabledChannelsToAdd.AddRange(PlayerChatChannels);
+                    }
+                    if (!SpecifyPlayersEnabled)
+                    {
+                        EnabledPlayersToAdd.Clear();
+                        EnabledPlayersToAdd.Add("All");
+                    }
 
                     TermFilter2Entry NewEntry = new TermFilter2Entry { TermToFilter = TermToAdd, EnabledChannels = EnabledChannelsToAdd, EnabledPlayers = EnabledPlayersToAdd, HideMessage = HideMessageToAdd, ReplaceWordInMessage = ReplaceWordInMessageToAdd, ReplaceMessageTerms = ReplaceTermsToAdd };
                     NewEntry.EnabledChannels = NewEntry.EnabledChannels.OrderBy(x => x.GetInfoName(), StringComparer.OrdinalIgnoreCase).ToList();
@@ -243,17 +351,19 @@ namespace TermFilter2.Windows
                     {
                         Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Add(NewEntry);
                     }
-                        
+
                     Plugin.PluginConfig.Save();
                     TermToAdd = "";
+                    SpecifyChannelEnabled = false;
                     EnableChannelToAdd = XivChatType.None;
                     EnabledChannelsToAdd.Clear();
+                    SpecifyPlayersEnabled = false;
                     EnabledPlayersToAdd.Clear();
                     HideMessageToAdd = false;
                     ReplaceWordInMessageToAdd = false;
                     ReplaceTermsToAdd.Clear();
                 }
-                if (!string.IsNullOrWhiteSpace(CurrentError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), CurrentError); }
+                if (!string.IsNullOrWhiteSpace(AddTermError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), AddTermError); }
             }
 
             foreach (var Item in ToRemove)
