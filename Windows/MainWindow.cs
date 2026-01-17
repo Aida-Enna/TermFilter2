@@ -44,7 +44,7 @@ namespace TermFilter2.Windows
         public bool HideMessageToAdd = false;
         public bool ReplaceWordInMessageToAdd = false;
         public string ReplaceWordToAdd = "";
-        public List<string> ReplaceTermsToAdd = new List<string>();
+        public List<string> ReplaceWordsToAdd = new List<string>();
         public bool SpecifyPlayersEnabled = false;
 
         public static readonly IReadOnlyList<XivChatType> PlayerChatChannels = Enum.GetValues<XivChatType>().Where(v => v != XivChatType.Echo &&
@@ -52,37 +52,7 @@ namespace TermFilter2.Windows
 
         private string AddTermError = "";
         private string AddPlayerError = "";
-
-        //public List<XivChatType> PlayerChatChannels = new List<XivChatType>
-        //{
-        //      XivChatType.Alliance,
-        //      XivChatType.CrossLinkShell1,
-        //      XivChatType.CrossLinkShell2,
-        //      XivChatType.CrossLinkShell3,
-        //      XivChatType.CrossLinkShell4,
-        //      XivChatType.CrossLinkShell5,
-        //      XivChatType.CrossLinkShell6,
-        //      XivChatType.CrossLinkShell7,
-        //      XivChatType.CrossLinkShell8,
-        //      XivChatType.CrossParty,
-        //      XivChatType.CustomEmote,
-        //      XivChatType.FreeCompany,
-        //      XivChatType.Ls1,
-        //      XivChatType.Ls2,
-        //      XivChatType.Ls3,
-        //      XivChatType.Ls4,
-        //      XivChatType.Ls5,
-        //      XivChatType.Ls6,
-        //      XivChatType.Ls7,
-        //      XivChatType.Ls8,
-        //      XivChatType.NoviceNetwork,
-        //      XivChatType.Party,
-        //      XivChatType.PvPTeam,
-        //      XivChatType.Say,
-        //      XivChatType.Shout,
-        //      XivChatType.TellIncoming,
-        //      XivChatType.Yell
-        //};
+        private string AddWordError = "";
 
         public override void Draw()
         {
@@ -133,7 +103,12 @@ namespace TermFilter2.Windows
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(name.ReplaceWordInMessage.ToString());
                     ImGui.TableNextColumn();
-                    string ReplaceMessageTerms = string.Join(Environment.NewLine, name.ReplaceMessageTerms);
+                    List<string> FixedReplaceMessageTerms = new List<string>();
+                    foreach (var thing in name.ReplaceMessageTerms)
+                    {
+                        FixedReplaceMessageTerms.Add("\"" + thing + "\"");
+                    }
+                    string ReplaceMessageTerms = string.Join(Environment.NewLine, FixedReplaceMessageTerms);
                     ImGui.TextUnformatted(ReplaceMessageTerms);
                     ImGui.TableNextColumn();
                     if (ImGui.Button("Modify"))
@@ -148,6 +123,7 @@ namespace TermFilter2.Windows
                         {
                             SpecifyChannelEnabled = false;
                         }
+                        EnabledChannelsToAdd.Clear();
                         EnabledChannelsToAdd.AddRange(Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledChannels);
                         if (Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledPlayers.FirstOrDefault() != "All")
                         {
@@ -157,10 +133,14 @@ namespace TermFilter2.Windows
                         {
                             SpecifyPlayersEnabled = false;
                         }
+                        EnabledPlayersToAdd.Clear();
                         EnabledPlayersToAdd.AddRange(Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].EnabledPlayers);
+                        PlayerToAddName = "";
+                        PlayerToAddWorld = "Not Selected";
                         HideMessageToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].HideMessage;
                         ReplaceWordInMessageToAdd = Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].ReplaceWordInMessage;
-                        ReplaceTermsToAdd.Clear();
+                        ReplaceWordsToAdd.Clear();
+                        ReplaceWordsToAdd.AddRange(Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId][index].ReplaceMessageTerms);
                     }
                     ImGui.SameLine();
                     if (ImGui.Button("Delete"))
@@ -295,9 +275,45 @@ namespace TermFilter2.Windows
                 }
                 if (ReplaceWordInMessageToAdd)
                 {
-                    ImGui.Text("Word to replace the term:");
+                    ImGui.Text("Word(s) to replace the term:");
                     ImGui.SameLine();
-                    ImGui.InputText("##WordToAdd", ref TermToAdd);
+                    ImGui.InputText("##WordToAdd", ref ReplaceWordToAdd);
+                    ImGui.SameLine();
+                    if (ImGui.Button("Add word(s)"))
+                    {
+                        if (string.IsNullOrWhiteSpace(ReplaceWordToAdd))
+                        {
+                            AddWordError = "Invalid word, please check it again.";
+                            return;
+                        }
+                        else
+                        {
+                            if (!ReplaceWordsToAdd.Contains(ReplaceWordToAdd)) { ReplaceWordsToAdd.Add(ReplaceWordToAdd); }
+                            AddWordError = "";
+                            ReplaceWordToAdd = "";
+                        }
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Remove word(s)"))
+                    {
+                        if (ReplaceWordsToAdd.Contains(ReplaceWordToAdd)) { ReplaceWordsToAdd.Remove(ReplaceWordToAdd); }
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Clear"))
+                    {
+                        ReplaceWordsToAdd.Clear();
+                    }
+                    if (ReplaceWordsToAdd.Count > 0)
+                    {
+                        ImGui.Text("Words that will be randomly picked from to replace the term:");
+                        List<string> FixedWordsToAdd = new List<string>();
+                        foreach (var thing in ReplaceWordsToAdd)
+                        {
+                            FixedWordsToAdd.Add("\"" + thing + "\"");
+                        }
+                        ImGui.TextWrapped(string.Join(", ", FixedWordsToAdd.OrderBy(x => x)));
+                    }
+                    if (!string.IsNullOrWhiteSpace(AddWordError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), AddWordError); }
                 }
 
                 ImGui.Separator();
@@ -339,7 +355,7 @@ namespace TermFilter2.Windows
                         EnabledPlayersToAdd.Add("All");
                     }
 
-                    TermFilter2Entry NewEntry = new TermFilter2Entry { TermToFilter = TermToAdd, EnabledChannels = EnabledChannelsToAdd, EnabledPlayers = EnabledPlayersToAdd, HideMessage = HideMessageToAdd, ReplaceWordInMessage = ReplaceWordInMessageToAdd, ReplaceMessageTerms = ReplaceTermsToAdd };
+                    TermFilter2Entry NewEntry = new TermFilter2Entry { TermToFilter = TermToAdd, EnabledChannels = EnabledChannelsToAdd, EnabledPlayers = EnabledPlayersToAdd, HideMessage = HideMessageToAdd, ReplaceWordInMessage = ReplaceWordInMessageToAdd, ReplaceMessageTerms = ReplaceWordsToAdd };
                     NewEntry.EnabledChannels = NewEntry.EnabledChannels.OrderBy(x => x.GetInfoName(), StringComparer.OrdinalIgnoreCase).ToList();
                     NewEntry.EnabledPlayers = NewEntry.EnabledPlayers.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
                     NewEntry.ReplaceMessageTerms = NewEntry.ReplaceMessageTerms.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
@@ -361,7 +377,7 @@ namespace TermFilter2.Windows
                     EnabledPlayersToAdd.Clear();
                     HideMessageToAdd = false;
                     ReplaceWordInMessageToAdd = false;
-                    ReplaceTermsToAdd.Clear();
+                    ReplaceWordsToAdd.Clear();
                 }
                 if (!string.IsNullOrWhiteSpace(AddTermError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), AddTermError); }
             }
@@ -369,7 +385,6 @@ namespace TermFilter2.Windows
             foreach (var Item in ToRemove)
             {
                 Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Remove(Item);
-                Plugin.Chat.Print("[TF2] The term \"" + Item.TermToFilter + "\" has been removed from the filter.");
 
                 List<TermFilter2Entry> EntriesToRemove = new();
                 foreach (TermFilter2Entry Entry in Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId])
