@@ -59,7 +59,11 @@ namespace TermFilter2.Windows
         public override unsafe void Draw()
         {
             List<TermFilter2Entry> ToRemove = new();
-            if (string.IsNullOrWhiteSpace(Plugin.PlayerState.CharacterName) || Plugin.PlayerState is null || !Plugin.ClientState.IsLoggedIn) { return; }
+            if (string.IsNullOrWhiteSpace(Plugin.PlayerState.CharacterName) || Plugin.PlayerState is null || !Plugin.ClientState.IsLoggedIn) 
+            {
+                ImGui.Text("This plugin will only work while logged in.");
+                return; 
+            }
             if (Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Count > 0)
             {
                 ImGui.Text(Plugin.PlayerState.CharacterName + "@" + Plugin.PlayerState.HomeWorld.Value.Name.ExtractText() + " has set the following term filters:");
@@ -284,7 +288,7 @@ namespace TermFilter2.Windows
                 ReplaceWordInMessageToAdd = false;
             }
             ImGui.SameLine();
-            if (ImGui.Checkbox("Replace word", ref ReplaceWordInMessageToAdd))
+            if (ImGui.Checkbox("Replace term with other word(s)", ref ReplaceWordInMessageToAdd))
             {
                 HideMessageToAdd = false;
             }
@@ -427,7 +431,6 @@ namespace TermFilter2.Windows
                 Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Sort((a, b) => string.Compare(a.TermToFilter, b.TermToFilter, StringComparison.Ordinal));
                 Plugin.PluginConfig.Save();
             }
-            ImGui.Separator();
             if (ImGui.Button("Want to help support my work?"))
             {
                 ShowSupport = !ShowSupport;

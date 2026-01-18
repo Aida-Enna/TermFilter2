@@ -46,15 +46,6 @@ namespace TermFilter2
             if (!PluginConfig.Terms.ContainsKey(PlayerState.ContentId))
             {
                 PluginConfig.Terms.Add(PlayerState.ContentId, new TermFilter2Collection());
-                PluginConfig.Terms[PlayerState.ContentId].Add(new TermFilter2Entry
-                {
-                    EnabledChannels = new List<XivChatType>
-                    {
-                        XivChatType.Ls2
-                    },
-                    HideMessage = false,
-                    TermToFilter = "Howling"
-                });
                 PluginConfig.Save();
             }
 
@@ -202,9 +193,8 @@ namespace TermFilter2
             }
         }
 
-        [Command("/termfilter2")]
-        [Aliases("/tf2", "/filters")]
-        [HelpMessage("Shows the main window")]
+        [Command("/tf2")]
+        [HelpMessage("Shows the Term Filter 2 configuration window")]
         public void ToggleMain(string command, string args)
         {
             MainWindow.Toggle();
@@ -215,18 +205,16 @@ namespace TermFilter2
             if (string.IsNullOrEmpty(original))
                 return replacement;
 
-            // ALL CAPS
             if (original.All(char.IsUpper))
                 return replacement.ToUpper();
 
-            // all lowercase
             if (original.All(char.IsLower))
                 return replacement.ToLower();
 
             // Title Case
             if (char.IsUpper(original[0]) && original.Skip(1).All(char.IsLower)) { return char.ToUpper(replacement[0]) + replacement[1..].ToLower(); }
 
-            // Mixed case (length-independent)
+            // Mixed case
             var result = new char[replacement.Length];
             bool lastWasUpper = char.IsUpper(original[^1]);
 
