@@ -241,7 +241,12 @@ namespace TermFilter2.Windows
                         }
                         else
                         {
-                            if (!EnabledPlayersToAdd.Contains(PlayerToAddName + "@" + PlayerToAddWorld)) { EnabledPlayersToAdd.Add(PlayerToAddName + "@" + PlayerToAddWorld); }
+                            if (!EnabledPlayersToAdd.Contains(PlayerToAddName + "@" + PlayerToAddWorld))
+                            {
+                                //If we have all players filtered, clear it and add the new person
+                                if (EnabledPlayersToAdd.Count() == 1 && EnabledPlayersToAdd.First() == "All") { EnabledPlayersToAdd.Clear(); }
+                                EnabledPlayersToAdd.Add(PlayerToAddName + "@" + PlayerToAddWorld); 
+                            }
                             AddPlayerError = "";
                         }
                     }
@@ -257,7 +262,7 @@ namespace TermFilter2.Windows
                     }
                     if (EnabledPlayersToAdd.Count > 0)
                     {
-                        ImGui.Text("Channels to add to the new term filter:");
+                        ImGui.Text("Players to add to the new term filter:");
                         ImGui.TextWrapped(string.Join(", ", EnabledPlayersToAdd.OrderBy(x => x)));
                     }
                     if (!string.IsNullOrWhiteSpace(AddPlayerError)) { ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), AddPlayerError); }
@@ -296,7 +301,11 @@ namespace TermFilter2.Windows
                     ImGui.SameLine();
                     if (ImGui.Button("Remove word(s)"))
                     {
-                        if (ReplaceWordsToAdd.Contains(ReplaceWordToAdd)) { ReplaceWordsToAdd.Remove(ReplaceWordToAdd); }
+                        if (ReplaceWordsToAdd.Contains(ReplaceWordToAdd)) 
+                        {
+                            ReplaceWordsToAdd.Remove(ReplaceWordToAdd);
+                            ReplaceWordToAdd = "";
+                        }
                     }
                     ImGui.SameLine();
                     if (ImGui.Button("Clear"))
@@ -402,6 +411,36 @@ namespace TermFilter2.Windows
 
                 Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Sort((a, b) => string.Compare(a.TermToFilter, b.TermToFilter, StringComparison.Ordinal));
                 Plugin.PluginConfig.Save();
+            }
+            ImGui.Separator();
+            if (ImGui.Button("Want to help support my work?"))
+            {
+                ShowSupport = !ShowSupport;
+            }
+            if (ImGui.IsItemHovered()) { ImGui.SetTooltip("Click me!"); }
+            if (ShowSupport)
+            {
+                ImGui.Text("Here are the current ways you can support the work I do.\nEvery bit helps, thank you! Have a great day!");
+                ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.19f, 0.52f, 0.27f, 1));
+                if (ImGui.Button("Donate via Paypal"))
+                {
+                    Dalamud.Utility.Util.OpenLink("https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=QXF8EL4737HWJ");
+                }
+                ImGui.PopStyleColor();
+                ImGui.SameLine();
+                ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.95f, 0.39f, 0.32f, 1));
+                if (ImGui.Button("Become a Patron"))
+                {
+                    Dalamud.Utility.Util.OpenLink("https://www.patreon.com/bePatron?u=5597973");
+                }
+                ImGui.PopStyleColor();
+                ImGui.SameLine();
+                ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.25f, 0.67f, 0.87f, 1));
+                if (ImGui.Button("Support me on Ko-Fi"))
+                {
+                    Dalamud.Utility.Util.OpenLink("https://ko-fi.com/Y8Y114PMT");
+                }
+                ImGui.PopStyleColor();
             }
         }
 
