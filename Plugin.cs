@@ -153,11 +153,11 @@ namespace TermFilter2
                                             //string MessageStringBefore = MessageParts[0];
                                             //string MessageStringAfter = MessageParts[1];
                                             NewPayloads.Add(new TextPayload(MessageStringBefore));
-                                            NewPayloads.Add(new UIForegroundPayload(17));
-                                            NewPayloads.Add(new UIGlowPayload(17));
+                                            //NewPayloads.Add(new UIForegroundPayload(17));
+                                            NewPayloads.Add(new UIGlowPayload(8));
                                             NewPayloads.Add(new TextPayload(MatchCase(ReplacementWord, MessageStringWord)));
                                             NewPayloads.Add(new UIGlowPayload(0));
-                                            NewPayloads.Add(new UIForegroundPayload(0));
+                                            //NewPayloads.Add(new UIForegroundPayload(0));
                                             NewPayloads.Add(new TextPayload(MessageStringAfter));
                                             //NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
                                         }

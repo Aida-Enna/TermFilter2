@@ -3,6 +3,7 @@ using Dalamud.Game.Text;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
 using System;
@@ -10,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace TermFilter2.Windows
 {
@@ -54,21 +56,21 @@ namespace TermFilter2.Windows
         private string AddPlayerError = "";
         private string AddWordError = "";
 
-        public override void Draw()
+        public unsafe override void Draw()
         {
             List<TermFilter2Entry> ToRemove = new();
             if (string.IsNullOrWhiteSpace(Plugin.PlayerState.CharacterName) || Plugin.PlayerState is null || !Plugin.ClientState.IsLoggedIn) { return; }
             ImGui.Text(Plugin.PlayerState.CharacterName + "@" + Plugin.PlayerState.HomeWorld.Value.Name.ExtractText() + " has set the following term filters:");
-            if (ImGui.BeginTable($"##TotalStatsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit))
+            if (ImGui.BeginTable($"##TotalStatsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollX | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2((Device.Instance()->Width / 2) - 500, (Device.Instance()->Height / 2) - 200)));
             {
                 ImGui.TableSetupColumn("Term");
-                ImGui.TableSetupColumn("Term ID");
-                ImGui.TableSetupColumn("Channels");
-                ImGui.TableSetupColumn("Players");
+                ImGui.TableSetupColumn("ID");
+                ImGui.TableSetupColumn("Channel(s)");
+                ImGui.TableSetupColumn("Player(s)");
                 ImGui.TableSetupColumn("Hide");
                 ImGui.TableSetupColumn("Replace");
-                ImGui.TableSetupColumn("Replace Terms");
-                ImGui.TableSetupColumn("Modify Term");
+                ImGui.TableSetupColumn("Replace Term(s)");
+                ImGui.TableSetupColumn("Modify Term", ImGuiTableColumnFlags.None, 150);
                 ImGui.TableHeadersRow();
 
                 foreach (var (index, name) in Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Index())
@@ -181,7 +183,7 @@ namespace TermFilter2.Windows
                         EnabledChannelsToAdd.AddRange(PlayerChatChannels);
                     }
                     ImGui.SameLine();
-                    if (ImGui.Button("Clear"))
+                    if (ImGui.Button("Clear###ClearEnabledChannels"))
                     {
                         EnabledChannelsToAdd.Clear();
                     }
@@ -256,7 +258,7 @@ namespace TermFilter2.Windows
                         if (EnabledPlayersToAdd.Contains(PlayerToAddName + "@" + PlayerToAddWorld)) { EnabledPlayersToAdd.Remove(PlayerToAddName + "@" + PlayerToAddWorld); }
                     }
                     ImGui.SameLine();
-                    if (ImGui.Button("Clear"))
+                    if (ImGui.Button("Clear###ClearEnabledPlayers"))
                     {
                         EnabledPlayersToAdd.Clear();
                     }
@@ -308,8 +310,9 @@ namespace TermFilter2.Windows
                         }
                     }
                     ImGui.SameLine();
-                    if (ImGui.Button("Clear"))
+                    if (ImGui.Button("Clear###ClearReplaceWords"))
                     {
+                        Thread.Sleep(1);
                         ReplaceWordsToAdd.Clear();
                     }
                     if (ReplaceWordsToAdd.Count > 0)
@@ -341,6 +344,11 @@ namespace TermFilter2.Windows
                     if (SpecifyPlayersEnabled && EnabledPlayersToAdd.Count == 0)
                     {
                         AddTermError = "You must add at least 1 player to filter if you have player filters enabled.";
+                        return;
+                    }
+                    if (ReplaceWordInMessageToAdd && ReplaceWordsToAdd.Count == 0)
+                    {
+                        AddTermError = "You must add at least 1 word to replace if you have replacing the word enabled.";
                         return;
                     }
                     AddTermError = "";
