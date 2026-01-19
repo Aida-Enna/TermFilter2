@@ -3,6 +3,7 @@ using Dalamud.Game.Text;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
@@ -22,10 +23,20 @@ namespace TermFilter2.Windows
         // We give this window a constant ID using ###.
         // This allows for labels to be dynamic, like "{FPS Counter}fps###XYZ counter window",
         // and the window ID will always be "###XYZ counter window" for ImGui
-        public MainWindow(Plugin plugin) : base("Term Filter 2###NNMainWindow")
+        public unsafe MainWindow(Plugin plugin) : base("Term Filter 2###NNMainWindow")
         {
-            Flags = ImGuiWindowFlags.AlwaysAutoResize;
-            SizeCondition = ImGuiCond.Always;
+            //Flags = ImGuiWindowFlags.AlwaysAutoResize;
+            SizeCondition = ImGuiCond.FirstUseEver;
+            Size = new System.Numerics.Vector2((Device.Instance()->Width / 2), (Device.Instance()->Height / 2));
+        }
+
+        public override bool DrawConditions()
+        {
+            if (!Plugin.ClientState.IsLoggedIn)
+            {
+                return false;
+            }
+            return true;
         }
 
         public void Dispose()
@@ -56,7 +67,7 @@ namespace TermFilter2.Windows
         private string AddPlayerError = "";
         private string AddWordError = "";
 
-        public override unsafe void Draw()
+        public unsafe override void Draw()
         {
             List<TermFilter2Entry> ToRemove = new();
             if (string.IsNullOrWhiteSpace(Plugin.PlayerState.CharacterName) || Plugin.PlayerState is null || !Plugin.ClientState.IsLoggedIn) 
@@ -67,7 +78,7 @@ namespace TermFilter2.Windows
             if (Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Count > 0)
             {
                 ImGui.Text(Plugin.PlayerState.CharacterName + "@" + Plugin.PlayerState.HomeWorld.Value.Name.ExtractText() + " has set the following term filters:");
-                if (ImGui.BeginTable($"##TotalStatsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollX | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2((Device.Instance()->Width / 2) - 500, (Device.Instance()->Height / 2) - 200)))
+                if (ImGui.BeginTable($"##TermsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollX | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2((Device.Instance()->Width / 2), (Device.Instance()->Height / 2))))
                 {
                     ImGui.TableSetupColumn("Term");
                     ImGui.TableSetupColumn("ID");
@@ -76,7 +87,7 @@ namespace TermFilter2.Windows
                     ImGui.TableSetupColumn("Hide");
                     ImGui.TableSetupColumn("Replace");
                     ImGui.TableSetupColumn("Replace Term(s)");
-                    ImGui.TableSetupColumn("Modify Term", ImGuiTableColumnFlags.None, 150);
+                    ImGui.TableSetupColumn("Modify/Delete Term", ImGuiTableColumnFlags.None, 150);
                     ImGui.TableHeadersRow();
 
                     foreach (var (index, name) in Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Index())

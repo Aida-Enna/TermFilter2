@@ -85,107 +85,126 @@ namespace TermFilter2
                  */
 
                 if (sender.Payloads.Count == 0) { return; }
-                if (sender.Payloads.Count == 1 && ((TextPayload)sender.Payloads.First()).Text == PlayerState.CharacterName) { return; }
+                if ((sender.Payloads.Where(a => a.Type == PayloadType.RawText).Any(x => ((TextPayload)x).Text == PlayerState.CharacterName))) { return; }
+
+#if DEBUG
+                int count = 0;
+                Plugin.PluginLog.Debug("==SENDER START==");
+                foreach (Payload PLoad in sender.Payloads)
+                {
+                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
+                    count++;
+                }
+                Plugin.PluginLog.Debug("==SENDER END==");
+                
+                count = 0;
+                Plugin.PluginLog.Debug("==MESSAGE START==");
+                foreach (Payload PLoad in message.Payloads)
+                {
+                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
+                    count++;
+                }
+                Plugin.PluginLog.Debug("==MESSAGE END==");
+#endif
 
                 //Payload UIPayload = sender.Payloads.Where(x => x.Type == PayloadType.UIForeground).First();
                 //uint UIColor = ((UIForegroundPayload)UIPayload).UIColor.Value.RowId;
                 //Chat.Print(UIColor.ToString());
-
-                //If it in any of the enabled channels
-                if (PluginConfig.Terms[PlayerState.ContentId].Any(a => a.EnabledChannels.Any(b => type == b)))
+                try
                 {
-                    string MessageString = message.TextValue;
-
-                    string PlayerName = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).PlayerName;
-                    string PlayerWorld = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).World.Value.Name.ExtractText();
-                    string PlayerCombined = string.Concat(PlayerName.Where(c => Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))) + "@" + PlayerWorld;
-
-                    //If any of the terms are in the sentence
-                    if (PluginConfig.Terms[PlayerState.ContentId].Any(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)))
+                    //If it in any of the enabled channels
+                    if (PluginConfig.Terms[PlayerState.ContentId].Any(a => a.EnabledChannels.Any(b => type == b)))
                     {
-                        //Get the TermFilter
-                        TermFilter2Entry? TermEntry = PluginConfig.Terms[PlayerState.ContentId].Find(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase));
-                        int TermFilterNumber = PluginConfig.Terms[PlayerState.ContentId].FindIndex(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)) + 1;
+                        string MessageString = message.TextValue;
 
-                        if (TermEntry == null) { return; }
+                        string PlayerName = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).PlayerName;
+                        string PlayerWorld = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).World.Value.Name.ExtractText();
+                        string PlayerCombined = string.Concat(PlayerName.Where(c => Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))) + "@" + PlayerWorld;
 
-                        //Check to see if the player is in the player list, or if it's "All"
-                        if (TermEntry.EnabledPlayers.Any(x => x == PlayerCombined) || (TermEntry.EnabledPlayers.Count == 1 && TermEntry.EnabledPlayers.FirstOrDefault() == "All"))
+                        //If any of the terms are in the sentence
+                        if (PluginConfig.Terms[PlayerState.ContentId].Any(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)))
                         {
-                            //If hide the message is enabled
-                            if (TermEntry.HideMessage)
-                            {
-                                PluginLog.Debug("Hid message from \"" + PlayerName + "\": \"" + MessageString.Replace(TermEntry.TermToFilter.ToLower(), "->" + TermEntry.TermToFilter.ToUpper() + "<-") + "\"");
-                                isHandled = true;
-                                return;
-                            }
-                            else
-                            {
-                                var builder = new SeStringBuilder();
-                                var NewPayloads = new List<Payload>();
+                            //Get the TermFilter
+                            TermFilter2Entry? TermEntry = PluginConfig.Terms[PlayerState.ContentId].Find(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase));
+                            int TermFilterNumber = PluginConfig.Terms[PlayerState.ContentId].FindIndex(x => MessageString.Contains(x.TermToFilter, StringComparison.OrdinalIgnoreCase)) + 1;
 
-                                //bool ClearedPlayerPayloadAlready = false;
-                                //List<Payload> ReplacementPayload = new List<Payload>();
-                                foreach (TextPayload payload in message.Payloads)
+                            if (TermEntry == null) { return; }
+
+                            //Check to see if the player is in the player list, or if it's "All"
+                            if (TermEntry.EnabledPlayers.Any(x => x == PlayerCombined) || (TermEntry.EnabledPlayers.Count == 1 && TermEntry.EnabledPlayers.FirstOrDefault() == "All"))
+                            {
+                                //If hide the message is enabled
+                                if (TermEntry.HideMessage)
                                 {
-                                    if (payload is TextPayload) // If it's a text payload, should be the message
+                                    PluginLog.Debug("Hid message from \"" + PlayerName + "\": \"" + MessageString.Replace(TermEntry.TermToFilter.ToLower(), "->" + TermEntry.TermToFilter.ToUpper() + "<-") + "\"");
+                                    isHandled = true;
+                                    return;
+                                }
+                                else
+                                {
+                                    var builder = new SeStringBuilder();
+                                    var NewPayloads = new List<Payload>();
+
+                                    //bool ClearedPlayerPayloadAlready = false;
+                                    //List<Payload> ReplacementPayload = new List<Payload>();
+                                    foreach (Payload payload in message.Payloads)
                                     {
-                                        if (TermEntry.ReplaceWordInMessage)
+                                        if (payload is TextPayload) // If it's a text payload, should be the message
                                         {
-                                            string ReplacementWord = TermEntry.ReplaceMessageTerms[RNG.Next(0, TermEntry.ReplaceMessageTerms.Count())];
-                                            int WordIndex = MessageString.IndexOf(TermEntry.TermToFilter, StringComparison.OrdinalIgnoreCase);
+                                            if (TermEntry.ReplaceWordInMessage)
+                                            {
+                                                string ReplacementWord = TermEntry.ReplaceMessageTerms[RNG.Next(0, TermEntry.ReplaceMessageTerms.Count())];
+                                                int WordIndex = MessageString.IndexOf(TermEntry.TermToFilter, StringComparison.OrdinalIgnoreCase);
 
-                                            string MessageStringBefore = MessageString.Substring(0, WordIndex);
-                                            string MessageStringWord = MessageString.Substring(WordIndex, TermEntry.TermToFilter.Length);
-                                            string MessageStringAfter = MessageString.Substring(WordIndex + TermEntry.TermToFilter.Length);
+                                                string MessageStringBefore = MessageString.Substring(0, WordIndex);
+                                                string MessageStringWord = MessageString.Substring(WordIndex, TermEntry.TermToFilter.Length);
+                                                string MessageStringAfter = MessageString.Substring(WordIndex + TermEntry.TermToFilter.Length);
 
-                                            //string[] MessageParts = MessageString.Split(TermEntry.TermToFilter,StringSplitOptions.None);
+                                                //string[] MessageParts = MessageString.Split(TermEntry.TermToFilter,StringSplitOptions.None);
 
-                                            //string MessageStringBefore = MessageParts[0];
-                                            //string MessageStringAfter = MessageParts[1];
-                                            NewPayloads.Add(new TextPayload(MessageStringBefore));
-                                            //NewPayloads.Add(new UIForegroundPayload(17));
-                                            NewPayloads.Add(new UIGlowPayload(8));
-                                            NewPayloads.Add(new TextPayload(MatchCase(ReplacementWord, MessageStringWord)));
-                                            NewPayloads.Add(new UIGlowPayload(0));
-                                            //NewPayloads.Add(new UIForegroundPayload(0));
-                                            NewPayloads.Add(new TextPayload(MessageStringAfter));
-                                            //NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
+                                                //string MessageStringBefore = MessageParts[0];
+                                                //string MessageStringAfter = MessageParts[1];
+                                                NewPayloads.Add(new TextPayload(MessageStringBefore));
+                                                //NewPayloads.Add(new UIForegroundPayload(17));
+                                                NewPayloads.Add(new UIGlowPayload(8));
+                                                NewPayloads.Add(new TextPayload(MatchCase(ReplacementWord, MessageStringWord)));
+                                                NewPayloads.Add(new UIGlowPayload(0));
+                                                //NewPayloads.Add(new UIForegroundPayload(0));
+                                                NewPayloads.Add(new TextPayload(MessageStringAfter));
+                                                //NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
+                                            }
+                                            else
+                                            {
+                                                NewPayloads.Add(new UIForegroundPayload(17));
+                                                //NewPayloads.Add(new UIGlowPayload(17));
+                                                NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
+                                                //NewPayloads.Add(new UIGlowPayload(0));
+                                                NewPayloads.Add(new UIForegroundPayload(0));
+                                            }
+                                            PluginLog.Debug("Filtered message from \"" + PlayerName + "\": \"" + Regex.Replace(MessageString, TermEntry.TermToFilter, "->" + TermEntry.TermToFilter + "<-") + "\"", StringComparison.OrdinalIgnoreCase);
                                         }
                                         else
                                         {
-                                            NewPayloads.Add(new UIForegroundPayload(17));
-                                            //NewPayloads.Add(new UIGlowPayload(17));
-                                            NewPayloads.Add(new TextPayload("[Filtered] Message could not be displayed due to Term Filter " + TermFilterNumber + "."));
-                                            //NewPayloads.Add(new UIGlowPayload(0));
-                                            NewPayloads.Add(new UIForegroundPayload(0));
+                                            if (!TermEntry.ReplaceWordInMessage)
+                                            {
+                                                NewPayloads.Add(payload);
+                                            }
                                         }
-                                        PluginLog.Debug("Filtered message from \"" + PlayerName + "\": \"" + Regex.Replace(MessageString, TermEntry.TermToFilter, "->" + TermEntry.TermToFilter + "<-") + "\"", StringComparison.OrdinalIgnoreCase);
                                     }
-                                    else
-                                    {
-                                        NewPayloads.Add(payload);
-                                    }
-                                }
 
-                                message.Payloads.Clear();
-                                message.Payloads.AddRange(NewPayloads);
-                                //Thread.Sleep(1);
+                                    message.Payloads.Clear();
+                                    message.Payloads.AddRange(NewPayloads);
+                                    //Thread.Sleep(1);
+                                }
                             }
                         }
                     }
                 }
-
-                //#if DEBUG
-                //                int count = 0;
-                //                Plugin.PluginLog.Debug("==PAYLOAD START==");
-                //                foreach (Payload PLoad in message.Payloads)
-                //                {
-                //                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
-                //                    count++;
-                //                }
-                //                Plugin.PluginLog.Debug("==PAYLOAD END==");
-                //#endif
+                catch (Exception e)
+                {
+                    PluginLog.Error("Something went wrong with Term Filter 2, passing through the original message. Error: " + Environment.NewLine + e.ToString());
+                    return;
+                }
             }
             catch (Exception f)
             {
@@ -200,7 +219,7 @@ namespace TermFilter2
             MainWindow.Toggle();
         }
 
-        string MatchCase(string replacement, string original)
+        private string MatchCase(string replacement, string original)
         {
             if (string.IsNullOrEmpty(original))
                 return replacement;
