@@ -25,9 +25,9 @@ namespace TermFilter2.Windows
         // and the window ID will always be "###XYZ counter window" for ImGui
         public unsafe MainWindow(Plugin plugin) : base("Term Filter 2###NNMainWindow")
         {
-            //Flags = ImGuiWindowFlags.AlwaysAutoResize;
-            SizeCondition = ImGuiCond.FirstUseEver;
-            Size = new System.Numerics.Vector2((Device.Instance()->Width / 2), (Device.Instance()->Height / 2));
+            Flags = ImGuiWindowFlags.AlwaysAutoResize;
+            //SizeCondition = ImGuiCond.Always;
+            //Size = new System.Numerics.Vector2((Device.Instance()->Width / 2), (Device.Instance()->Height / 2));
         }
 
         public override bool DrawConditions()
@@ -78,7 +78,7 @@ namespace TermFilter2.Windows
             if (Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Count > 0)
             {
                 ImGui.Text(Plugin.PlayerState.CharacterName + "@" + Plugin.PlayerState.HomeWorld.Value.Name.ExtractText() + " has set the following term filters:");
-                if (ImGui.BeginTable($"##TermsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollX | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2((Device.Instance()->Width / 2), (Device.Instance()->Height / 2))))
+                if (ImGui.BeginTable($"##TermsTable", 8, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit))
                 {
                     ImGui.TableSetupColumn("Term");
                     ImGui.TableSetupColumn("ID");
@@ -87,7 +87,7 @@ namespace TermFilter2.Windows
                     ImGui.TableSetupColumn("Hide");
                     ImGui.TableSetupColumn("Replace");
                     ImGui.TableSetupColumn("Replace Term(s)");
-                    ImGui.TableSetupColumn("Modify/Delete Term", ImGuiTableColumnFlags.None, 150);
+                    ImGui.TableSetupColumn("Modify/Delete Term");
                     ImGui.TableHeadersRow();
 
                     foreach (var (index, name) in Plugin.PluginConfig.Terms[Plugin.PlayerState.ContentId].Index())
@@ -485,7 +485,7 @@ namespace TermFilter2.Windows
             return NewLSName;
         }
 
-        //Lifted from the Orchestration plugin, thank you perchbird!
+        //Originally lifted (then modified) from the Orchestration plugin, thank you perchbird!
         //https://github.com/lmcintyre/OrchestrionPlugin/blob/main/Orchestrion/UI/Windows/SettingsWindow.cs
         private static void ChatTypeDropDown(string text,
         Func<string> get,
