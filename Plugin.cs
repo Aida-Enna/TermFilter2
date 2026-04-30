@@ -1,4 +1,5 @@
-﻿using Dalamud.Game.Text;
+﻿using Dalamud.Game.Chat;
+using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Interface.Windowing;
@@ -72,40 +73,40 @@ namespace TermFilter2
             }
         }
 
-        private void ChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+        private void ChatMessage(IHandleableChatMessage message /*XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled*/)
         {
             try
             {
                 if (!ClientState.IsLoggedIn) { return; }
 
-                if (message.Payloads.Count == 0) { return; }
-                /* TO IMPLEMENT:
-                 * Players
-                 * Replace/Replace Terms
-                 */
+                XivChatType type = message.LogKind;
+                if (type == XivChatType.StandardEmote) { return; } //We don't mess with the built-in stuff
+                SeString Sender = message.Sender;
+                SeString Message = message.Message;
 
-                if (sender.Payloads.Count == 0) { return; }
-                if ((sender.Payloads.Where(a => a.Type == PayloadType.RawText).Any(x => ((TextPayload)x).Text == PlayerState.CharacterName))) { return; }
+                if (Message.Payloads.Count == 0) { return; }
+                if (Sender.Payloads.Count == 0) { return; }
+                if ((Sender.Payloads.Where(a => a.Type == PayloadType.RawText).Any(x => ((TextPayload)x).Text == PlayerState.CharacterName))) { return; }
 
-#if DEBUG
-                int count = 0;
-                Plugin.PluginLog.Debug("==SENDER START==");
-                foreach (Payload PLoad in sender.Payloads)
-                {
-                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
-                    count++;
-                }
-                Plugin.PluginLog.Debug("==SENDER END==");
+//#if DEBUG
+//                int count = 0;
+//                Plugin.PluginLog.Debug("==SENDER START==");
+//                foreach (Payload PLoad in Sender.Payloads)
+//                {
+//                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
+//                    count++;
+//                }
+//                Plugin.PluginLog.Debug("==SENDER END==");
                 
-                count = 0;
-                Plugin.PluginLog.Debug("==MESSAGE START==");
-                foreach (Payload PLoad in message.Payloads)
-                {
-                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
-                    count++;
-                }
-                Plugin.PluginLog.Debug("==MESSAGE END==");
-#endif
+//                count = 0;
+//                Plugin.PluginLog.Debug("==MESSAGE START==");
+//                foreach (Payload PLoad in Message.Payloads)
+//                {
+//                    Plugin.PluginLog.Debug("[" + count + "] " + PLoad.ToString());
+//                    count++;
+//                }
+//                Plugin.PluginLog.Debug("==MESSAGE END==");
+//#endif
 
                 //Payload UIPayload = sender.Payloads.Where(x => x.Type == PayloadType.UIForeground).First();
                 //uint UIColor = ((UIForegroundPayload)UIPayload).UIColor.Value.RowId;
@@ -115,10 +116,10 @@ namespace TermFilter2
                     //If it in any of the enabled channels
                     if (PluginConfig.Terms[PlayerState.ContentId].Any(a => a.EnabledChannels.Any(b => type == b)))
                     {
-                        string MessageString = message.TextValue;
+                        string MessageString = Message.TextValue;
 
-                        string PlayerName = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).PlayerName;
-                        string PlayerWorld = ((PlayerPayload)sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).World.Value.Name.ExtractText();
+                        string PlayerName = ((PlayerPayload)Sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).PlayerName;
+                        string PlayerWorld = ((PlayerPayload)Sender.Payloads.Where(x => x.Type == PayloadType.Player).First()).World.Value.Name.ExtractText();
                         string PlayerCombined = string.Concat(PlayerName.Where(c => Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))) + "@" + PlayerWorld;
 
                         //If any of the terms are in the sentence
@@ -137,7 +138,7 @@ namespace TermFilter2
                                 if (TermEntry.HideMessage)
                                 {
                                     PluginLog.Debug("Hid message from \"" + PlayerName + "\": \"" + MessageString.Replace(TermEntry.TermToFilter.ToLower(), "->" + TermEntry.TermToFilter.ToUpper() + "<-") + "\"");
-                                    isHandled = true;
+                                    message.PreventOriginal();
                                     return;
                                 }
                                 else
@@ -147,7 +148,7 @@ namespace TermFilter2
 
                                     //bool ClearedPlayerPayloadAlready = false;
                                     //List<Payload> ReplacementPayload = new List<Payload>();
-                                    foreach (Payload payload in message.Payloads)
+                                    foreach (Payload payload in Message.Payloads)
                                     {
                                         if (payload is TextPayload) // If it's a text payload, should be the message
                                         {
@@ -192,8 +193,9 @@ namespace TermFilter2
                                         }
                                     }
 
-                                    message.Payloads.Clear();
-                                    message.Payloads.AddRange(NewPayloads);
+                                    message.Message = new SeString(NewPayloads);
+                                    //Message.Payloads.Clear();
+                                    //Message.Payloads.AddRange(NewPayloads);
                                     //Thread.Sleep(1);
                                 }
                             }
