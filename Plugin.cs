@@ -226,10 +226,10 @@ namespace TermFilter2
             if (string.IsNullOrEmpty(original))
                 return replacement;
 
-            if (original.All(char.IsUpper))
+            if (original.Where(char.IsLetter).All(char.IsUpper))
                 return replacement.ToUpper();
 
-            if (original.All(char.IsLower))
+            if (original.Where(char.IsLetter).All(char.IsLower))
                 return replacement.ToLower();
 
             // Title Case
